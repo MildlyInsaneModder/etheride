@@ -18,40 +18,36 @@ impl PidTune {
 
 pub struct PID {
     pub tune: PidTune,
-    prev_actual: f32,
-    prev_millis: vexide::time::LowResolutionTime,
-    prev_error_sign: bool,
+    prev_actual: Option<f32>,
+    prev_millis: Option<vexide::time::LowResolutionTime>,
+    prev_error_sign: Option<bool>,
     summation: f32,
-    first_run: bool,
 }
 
 impl PID {
     pub fn new(tune: PidTune) -> Self {
         Self {
             tune,
-            prev_actual: 0.0,
-            prev_millis: vexide::time::LowResolutionTime::now(),
-            prev_error_sign: false,
+            prev_actual: None,
+            prev_millis: None,
+            prev_error_sign: None,
             summation: 0.0,
-            first_run: true,
         }
     }
 
     pub fn update(&mut self, actual: f32, goal: f32) -> f32 {
         let error = goal - actual;
-        if self.first_run {
-            self.prev_actual = actual;
-            self.prev_millis = vexide::time::LowResolutionTime::now();
-            self.prev_error_sign = error.is_sign_positive();
-            self.first_run = false;
-            return error * self.tune.kp;
-        }
         let millis = vexide::time::LowResolutionTime::now();
-        let dt = millis.duration_since(self.prev_millis);
-        self.prev_millis = millis;
-        let dt: f32 = dt.as_millis() as f32 / 1000.0;
-        let derivative = (actual - self.prev_actual) / dt;
-        if self.prev_error_sign != error.is_sign_positive() {
+        let mut dt: f32;
+        if self.prev_millis.is_none() {
+            dt = 1000.0;
+        } else {
+            dt = millis.duration_since(self.prev_millis.unwrap()).as_millis() as f32;
+        }
+        self.prev_millis = Some(millis);
+        dt /= 1000.0;
+        let derivative = actual - self.prev_actual.unwrap_or(actual);
+        if self.prev_error_sign != Some(error.is_sign_positive()) {
             self.summation = 0.0;
         }
         if f32::abs(error) <= self.tune.summation_range || self.tune.summation_range == 0.0 {
@@ -59,8 +55,8 @@ impl PID {
         } else {
             self.summation = 0.0;
         }
-        self.prev_actual = actual;
-        self.prev_error_sign = error.is_sign_positive();
+        self.prev_actual = Some(actual);
+        self.prev_error_sign = Some(error.is_sign_positive());
         error * self.tune.kp + -derivative * self.tune.kd + self.summation * self.tune.ki
     }
 }
