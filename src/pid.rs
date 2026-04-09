@@ -39,10 +39,9 @@ impl PID {
         let error = goal - actual;
         let millis = vexide::time::LowResolutionTime::now();
         let mut dt: f32;
-        if self.prev_millis.is_none() {
-            dt = 1000.0;
-        } else {
-            dt = millis.duration_since(self.prev_millis.unwrap()).as_millis() as f32;
+        match self.prev_millis {
+            None => dt = 1000.0,
+            Some(time) => {dt = millis.duration_since(time).as_millis() as f32;} 
         }
         self.prev_millis = Some(millis);
         dt /= 1000.0;
