@@ -1,3 +1,12 @@
+/// Take-Back-Half (TBH) controller.
+///
+/// TBH is a simple, tuning-friendly algorithm popular in VEX robotics. The
+/// controller accumulates an output value proportional to the error. Each time
+/// the error crosses zero (sign change), the gain `k` is halved, which
+/// dampens overshoot without requiring careful manual tuning.
+///
+/// When a new goal is set, `k` is reset to its initial value so the
+/// controller responds aggressively to the new target.
 pub struct TBH {
     prev_goal: Option<f32>,
     k: f32,
@@ -7,6 +16,11 @@ pub struct TBH {
 }
 
 impl TBH {
+    /// Create a new TBH controller.
+    ///
+    /// `kinit` is the initial (and reset) gain applied to the error each
+    /// iteration. A good starting point is a value that, when multiplied by
+    /// the maximum expected error, produces the maximum desired output.
     pub fn new(kinit: f32) -> Self {
         Self {
             prev_goal: None,
@@ -17,6 +31,10 @@ impl TBH {
         }
     }
 
+    /// Compute the controller output for the current measurement and setpoint.
+    ///
+    /// Returns a voltage value (f32) suitable for
+    /// [`Motor::set_voltage`](vexide::devices::smart::motor::Motor::set_voltage).
     pub fn update(&mut self, actual: f32, goal: f32) -> f32 {
         let error = goal - actual;
 

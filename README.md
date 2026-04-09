@@ -1,16 +1,15 @@
-# vexide Template
+# etheride
 
-[![Build status](https://github.com/vexide/vexide-template/actions/workflows/rust.yml/badge.svg)](https://github.com/vexide/vexide-template/actions/workflows/rust.yml)
-
-> Ready-to-use template for developing VEX V5 robots in Rust.
-
-Seasoned vexide user? Delete README.md and update Cargo.toml as needed.
+A VEX V5 robot motion control library written in Rust using [vexide](https://vexide.dev/). It provides PID and Take-Back-Half (TBH) controllers alongside a configurable exit-condition manager for precise motor positioning.
 
 ## Table of Contents
 
-- [vexide Template](#vexide-template)
+- [etheride](#etheride)
   - [Table of Contents](#table-of-contents)
-  - [Using This Template](#using-this-template)
+  - [Modules](#modules)
+    - [PID Controller](#pid-controller)
+    - [TBH Controller](#tbh-controller)
+    - [Exit Condition Manager](#exit-condition-manager)
   - [Getting Started (Windows)](#getting-started-windows)
   - [Getting Started (macOS)](#getting-started-macos)
   - [Getting Started (NixOS)](#getting-started-nixos)
@@ -21,27 +20,80 @@ Seasoned vexide user? Delete README.md and update Cargo.toml as needed.
     - [Compiling and uploading to a VEX V5 robot](#compiling-and-uploading-to-a-vex-v5-robot)
     - [Viewing program output](#viewing-program-output)
 
-## Using This Template
+## Modules
 
-To create a project using this template, click the "[Use this template](https://github.com/new?template_name=vexide-template&template_owner=vexide)" button in the upper right corner of the GitHub repository. Choose an appropriate name and clone the new repository using Git. Finally, update the package name in `Cargo.toml`:
+### PID Controller
 
-```toml
-[package]
-name = "my-vex-robot"
-version = "0.1.0"
-edition = "2024"
+`src/pid.rs` implements a standard Proportional-Integral-Derivative (PID) controller.
+
+**Key features:**
+- Derivative is calculated on measurement (actual value) rather than error, preventing derivative kick on setpoint changes.
+- Integral summation is gated by a configurable range (`summation_range`). Accumulation only occurs when the absolute error is within that range, or when `summation_range` is `0.0` (disabled, accumulates always).
+- Integral is reset to zero whenever the error changes sign (crosses zero).
+
+**Usage:**
+
+```rust
+use pid::{PID, PidTune};
+
+// kp, ki, kd, summation_range
+let tune = PidTune::new(0.5, 0.0, 0.1, 0.0);
+let mut pid = PID::new(tune);
+
+// Returns a voltage output (f32)
+let output = pid.update(actual_position, goal_position);
+motor.set_voltage(output.into()).unwrap();
 ```
 
-You can also configure your program slot and upload behavior in `Cargo.toml`:
+### TBH Controller
 
-```toml
-[package.metadata.v5]
-slot = 1
-icon = "cool-x"
-compress = true
+`src/tbh.rs` implements a Take-Back-Half (TBH) velocity/position controller. TBH is a simple, tuning-friendly algorithm commonly used in VEX robotics.
+
+**Key features:**
+- When the error crosses zero, the gain `k` is halved (taken back half), preventing overshoot.
+- `k` is reset to its initial value (`kinit`) whenever the goal changes, ensuring a responsive start on new targets.
+
+**Usage:**
+
+```rust
+use tbh::TBH;
+
+let mut tbh = TBH::new(0.5); // kinit
+
+let output = tbh.update(actual_velocity, goal_velocity);
+motor.set_voltage(output.into()).unwrap();
 ```
 
-> See our [Building & Uploading tutorial](https://vexide.dev/docs/building-uploading/) for more information.
+### Exit Condition Manager
+
+`src/manager.rs` tracks elapsed time within configurable error bands and triggers an exit when a settle or timeout condition is met.
+
+**Parameters (`ManagerParams`):**
+
+| Parameter            | Type  | Description                                              |
+|----------------------|-------|----------------------------------------------------------|
+| `small_settle_range` | `f32` | Error must stay within this range for a short settle     |
+| `small_settle_time`  | `u32` | Milliseconds to remain in the small range before exit    |
+| `large_settle_range` | `f32` | Error must stay within this range for a large settle     |
+| `large_settle_time`  | `u32` | Milliseconds to remain in the large range before exit    |
+| `timeout`            | `u32` | Maximum milliseconds before the loop exits unconditionally|
+
+**Usage:**
+
+```rust
+use manager::{Manager, ManagerParams};
+
+// small_settle_range, small_settle_time (ms),
+// large_settle_range, large_settle_time (ms), timeout (ms)
+let params = ManagerParams::new(16.0, 20, 40.0, 80, 2000);
+let mut manager = Manager::new(params);
+
+while !manager.should_exit() {
+    let error = goal - actual;
+    manager.update(error);
+    // ... drive motor
+}
+```
 
 ## Getting Started (Windows)
 
