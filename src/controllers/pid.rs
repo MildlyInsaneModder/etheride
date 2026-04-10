@@ -41,7 +41,9 @@ impl PID {
         let mut dt: f32;
         match self.prev_millis {
             None => dt = 1000.0,
-            Some(time) => {dt = millis.duration_since(time).as_millis() as f32;} 
+            Some(time) => {
+                dt = millis.duration_since(time).as_millis() as f32;
+            }
         }
         self.prev_millis = Some(millis);
         dt /= 1000.0;
@@ -57,5 +59,30 @@ impl PID {
         self.prev_actual = Some(actual);
         self.prev_error_sign = Some(error.is_sign_positive());
         error * self.tune.kp + -derivative * self.tune.kd + self.summation * self.tune.ki
+    }
+}
+pub struct EPID {
+    pid: PID,
+    output_mod: f32,
+}
+impl EPID {
+    pub fn new(tune: PidTune) -> Self {
+        Self {
+            pid: PID::new(tune),
+            output_mod: 1.0,
+        }
+    }
+}
+impl EPID {
+    pub fn update(&mut self, actual: f32, goal: f32) -> f32 {
+        match self.pid.prev_error_sign {
+            None => {}
+            Some(val) => {
+                if (goal - actual).is_sign_positive() != val {
+                    self.output_mod *= 0.5
+                }
+            }
+        }
+        self.pid.update(actual, goal) * self.output_mod
     }
 }
