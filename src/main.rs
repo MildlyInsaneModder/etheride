@@ -34,6 +34,7 @@ async fn main(peripherals: Peripherals) {
         peripherals.port_6,
         Direction::Reverse,
     )));
+    let inertial = Arc::new(Mutex::new(InertialSensor::new(peripherals.port_14)));
     let mut hori_tracking = chassis::tracking_wheel::TrackingWheel::new(hori_sensor, 2.0);
     let mut vert_tracking = chassis::tracking_wheel::TrackingWheel::new(vert_sensor, 2.0);
     let leftside = Arc::new(Mutex::new([
