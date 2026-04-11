@@ -6,7 +6,7 @@ pub struct Drivetrain {
     leftside: Arc<Mutex<[Motor; 3]>>,
     rightside: Arc<Mutex<[Motor; 3]>>,
     gear_ratio: f32,
-    wheelsize: f32,
+    wheel_radius: f32,
 }
 
 impl Drivetrain {
@@ -14,56 +14,42 @@ impl Drivetrain {
         leftside: Arc<Mutex<[Motor; 3]>>,
         rightside: Arc<Mutex<[Motor; 3]>>,
         gear_ratio: f32,
-        wheelsize: f32,
+        wheel_radius: f32,
     ) -> Self {
         Self {
             leftside,
             rightside,
             gear_ratio,
-            wheelsize,
+            wheel_radius,
         }
     }
     pub fn get_averaged_position(&self) -> f32 {
+        //Need to build in feedback system to avoid reconnecting motors screwing with values
         let mut left_positions: Vec<f32> = vec![];
         let mut right_positions: Vec<f32> = vec![];
-        const ERR_VAL: f32 = -0.03;
         for motor in self.leftside.lock().unwrap().iter() {
-            match motor.position() {
-                Ok(val) => left_positions.push(val.as_degrees() as f32),
-                Err(_) => left_positions.push(ERR_VAL),
+            if let Ok(val) = motor.position() {
+                left_positions.push(val.as_degrees() as f32)
             }
         }
         for motor in self.rightside.lock().unwrap().iter() {
-            match motor.position() {
-                Ok(val) => right_positions.push(val.as_degrees() as f32),
-                Err(_) => right_positions.push(ERR_VAL),
-            }
-        }
-        let mut left_pos: Vec<f32> = vec![];
-        for val in left_positions.iter() {
-            if *val != ERR_VAL {
-                left_pos.push(*val);
-            }
-        }
-        let mut right_pos: Vec<f32> = vec![];
-        for val in right_positions.iter() {
-            if *val != ERR_VAL {
-                right_pos.push(*val);
+            if let Ok(val) = motor.position() {
+                right_positions.push(val.as_degrees() as f32)
             }
         }
         let mut right_sum: f32 = 0.0;
         let mut left_sum: f32 = 0.0;
-        for val in right_pos.iter() {
+        for val in left_positions.iter() {
             right_sum += val;
         }
-        for val in left_pos.iter() {
+        for val in right_positions.iter() {
             left_sum += val;
         }
-        (right_sum / right_pos.len() as f32 + right_sum / left_pos.len() as f32) / 2.0
+        (right_sum / right_positions.len() as f32 + left_sum / left_positions.len() as f32) / 2.0
             * self.gear_ratio
     }
     pub fn get_averaged_inches(&self) -> f32 {
-        self.get_averaged_position() / self.wheelsize
+        self.get_averaged_position() / 360.0 * 2.0 * self.wheel_radius * std::f32::consts::PI
     }
     pub fn set_voltage(&mut self, volts_left: f32, volts_right: f32) {
         for motor in self.rightside.lock().unwrap().iter_mut() {
