@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use vexide::prelude::*;
 
 pub mod log;
@@ -16,6 +14,8 @@ impl Compete for Robot {
         println!("Driver!");
     }
 }
+pub mod chassis;
+pub mod controllers;
 
 #[vexide::main]
 async fn main(peripherals: Peripherals) {}
