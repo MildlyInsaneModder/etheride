@@ -5,16 +5,14 @@ use vexide::prelude::RotationSensor;
 
 pub struct TrackingWheel {
     rotation_sensor: Arc<Mutex<RotationSensor>>,
-    offset: f32,
     diameter: f32,
     prev_pos: f32,
 }
 impl TrackingWheel {
-    pub fn new(rotation_sensor: Arc<Mutex<RotationSensor>>, offset: f32, diameter: f32) -> Self {
-        rotation_sensor.lock().unwrap().reset_position();
+    pub fn new(rotation_sensor: Arc<Mutex<RotationSensor>>, diameter: f32) -> Self {
+        let _ = rotation_sensor.lock().unwrap().reset_position();
         Self {
             rotation_sensor,
-            offset,
             diameter,
             prev_pos: 0.0,
         }

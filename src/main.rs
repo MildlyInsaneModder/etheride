@@ -27,23 +27,15 @@ pub mod controllers;
 #[vexide::main]
 async fn main(peripherals: Peripherals) {
     let hori_sensor = Arc::new(Mutex::new(RotationSensor::new(
-        peripherals.port_14,
+        peripherals.port_19,
         Direction::Forward,
     )));
     let vert_sensor = Arc::new(Mutex::new(RotationSensor::new(
-        peripherals.port_18,
-        Direction::Forward,
+        peripherals.port_6,
+        Direction::Reverse,
     )));
-    let hori_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
-        hori_sensor,
-        0.0,
-        2.0,
-    )));
-    let vert_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
-        vert_sensor,
-        0.0,
-        2.0,
-    )));
+    let mut hori_tracking = chassis::tracking_wheel::TrackingWheel::new(hori_sensor, 2.0);
+    let mut vert_tracking = chassis::tracking_wheel::TrackingWheel::new(vert_sensor, 2.0);
     let leftside = Arc::new(Mutex::new([
         Motor::new(peripherals.port_1, Gearset::Blue, Direction::Reverse),
         Motor::new(peripherals.port_2, Gearset::Blue, Direction::Reverse),
@@ -58,7 +50,7 @@ async fn main(peripherals: Peripherals) {
         drivetrain::Drivetrain::new(leftside.clone(), rightside.clone(), 0.75 / 1.0, 3.25 / 2.0);
     //drivetrain.set_voltage(2.0, 2.0);
     loop {
-        println!("Pos is{}", drivetrain.get_averaged_inches());
+        println!("Pos is{}", vert_tracking.get_inches_travelled());
         vexide::time::sleep(Duration::from_millis(10)).await;
     }
 }
