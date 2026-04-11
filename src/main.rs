@@ -5,7 +5,10 @@ use std::{
 
 use vexide::prelude::*;
 
-use crate::chassis::drivetrain::{self, Drivetrain};
+use crate::chassis::{
+    drivetrain::{self, Drivetrain},
+    odom,
+};
 
 pub mod log;
 pub mod manager;
@@ -34,9 +37,14 @@ async fn main(peripherals: Peripherals) {
         peripherals.port_6,
         Direction::Reverse,
     )));
-    let inertial = Arc::new(Mutex::new(InertialSensor::new(peripherals.port_14)));
-    let mut hori_tracking = chassis::tracking_wheel::TrackingWheel::new(hori_sensor, 2.0);
-    let mut vert_tracking = chassis::tracking_wheel::TrackingWheel::new(vert_sensor, 2.0);
+    let hori_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
+        hori_sensor,
+        2.0,
+    )));
+    let vert_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
+        vert_sensor,
+        2.0,
+    )));
     let leftside = Arc::new(Mutex::new([
         Motor::new(peripherals.port_1, Gearset::Blue, Direction::Reverse),
         Motor::new(peripherals.port_2, Gearset::Blue, Direction::Reverse),
@@ -47,11 +55,21 @@ async fn main(peripherals: Peripherals) {
         Motor::new(peripherals.port_9, Gearset::Blue, Direction::Forward),
         Motor::new(peripherals.port_10, Gearset::Blue, Direction::Forward),
     ]));
+    let inertial_sensor = Arc::new(Mutex::new(InertialSensor::new(peripherals.port_20)));
+    let mut odom = odom::Odom::new(
+        vert_tracking.clone(),
+        hori_tracking.clone(),
+        inertial_sensor.clone(),
+        0.0,
+        0.0,
+    );
     let drivetrain =
         drivetrain::Drivetrain::new(leftside.clone(), rightside.clone(), 0.75 / 1.0, 3.25 / 2.0);
     //drivetrain.set_voltage(2.0, 2.0);
     loop {
-        println!("Pos is{}", vert_tracking.get_inches_travelled());
+        odom.calculate();
+        let val = odom.get_x_position();
+        println!("X_Pos is{}", val);
         vexide::time::sleep(Duration::from_millis(10)).await;
     }
 }

@@ -78,4 +78,10 @@ impl Odom {
         self.previous_vertical_input = vertical_input;
         self.previous_theta = theta;
     }
+    pub fn get_y_position(&self) -> f32 {
+        self.y_position.read().unwrap().clone()
+    }
+    pub fn get_x_position(&self) -> f32 {
+        self.y_position.read().unwrap().clone()
+    }
 }
