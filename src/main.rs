@@ -26,6 +26,24 @@ pub mod controllers;
 
 #[vexide::main]
 async fn main(peripherals: Peripherals) {
+    let hori_sensor = Arc::new(Mutex::new(RotationSensor::new(
+        peripherals.port_14,
+        Direction::Forward,
+    )));
+    let vert_sensor = Arc::new(Mutex::new(RotationSensor::new(
+        peripherals.port_18,
+        Direction::Forward,
+    )));
+    let hori_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
+        hori_sensor,
+        0.0,
+        2.0,
+    )));
+    let vert_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
+        vert_sensor,
+        0.0,
+        2.0,
+    )));
     let leftside = Arc::new(Mutex::new([
         Motor::new(peripherals.port_1, Gearset::Blue, Direction::Reverse),
         Motor::new(peripherals.port_2, Gearset::Blue, Direction::Reverse),
