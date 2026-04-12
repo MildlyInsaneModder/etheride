@@ -1,6 +1,7 @@
 pub trait Update {
     fn update(&mut self, actual: f32, goal: f32) -> f32;
 }
+#[derive(Clone)]
 pub struct PidTune {
     kp: f32,
     ki: f32,

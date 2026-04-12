@@ -79,9 +79,9 @@ impl Odom {
         self.previous_theta = theta;
     }
     pub fn get_y_position(&self) -> f32 {
-        self.y_position.read().unwrap().clone()
+        *self.y_position.read().unwrap()
     }
     pub fn get_x_position(&self) -> f32 {
-        self.y_position.read().unwrap().clone()
+        *self.x_position.read().unwrap()
     }
 }

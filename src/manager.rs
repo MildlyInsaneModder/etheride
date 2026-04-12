@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct ManagerParams {
     small_settle_range: f32,
     small_settle_time: u32,
@@ -24,7 +24,6 @@ impl ManagerParams {
         }
     }
 }
-#[derive(Debug)]
 pub struct Manager {
     params: ManagerParams,
     init_time: vexide::time::LowResolutionTime,
