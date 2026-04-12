@@ -1,6 +1,3 @@
-pub trait Update {
-    fn update(&mut self, actual: f32, goal: f32) -> f32;
-}
 #[derive(Clone)]
 pub struct PidTune {
     kp: f32,
@@ -22,7 +19,7 @@ impl PidTune {
 
 pub struct PID {
     pub tune: PidTune,
-    prev_actual: Option<f32>,
+    prev_error: Option<f32>,
     prev_millis: Option<vexide::time::LowResolutionTime>,
     prev_error_sign: Option<bool>,
     summation: f32,
@@ -32,16 +29,13 @@ impl PID {
     pub fn new(tune: PidTune) -> Self {
         Self {
             tune,
-            prev_actual: None,
+            prev_error: None,
             prev_millis: None,
             prev_error_sign: None,
             summation: 0.0,
         }
     }
-}
-impl Update for PID {
-    fn update(&mut self, actual: f32, goal: f32) -> f32 {
-        let error = goal - actual;
+    pub fn update(&mut self, error: f32) -> f32 {
         let millis = vexide::time::LowResolutionTime::now();
         let mut dt: f32;
         match self.prev_millis {
@@ -52,7 +46,7 @@ impl Update for PID {
         }
         self.prev_millis = Some(millis);
         dt /= 1000.0;
-        let derivative = actual - self.prev_actual.unwrap_or(actual);
+        let derivative = error - self.prev_error.unwrap_or(error);
         if self.prev_error_sign != Some(error.is_sign_positive()) {
             self.summation = 0.0;
         }
@@ -61,9 +55,9 @@ impl Update for PID {
         } else {
             self.summation = 0.0;
         }
-        self.prev_actual = Some(actual);
+        self.prev_error = Some(error);
         self.prev_error_sign = Some(error.is_sign_positive());
-        error * self.tune.kp + -derivative * self.tune.kd + self.summation * self.tune.ki
+        error * self.tune.kp + derivative * self.tune.kd + self.summation * self.tune.ki
     }
 }
 pub struct EPID {
@@ -77,18 +71,16 @@ impl EPID {
             output_mod: 1.0,
         }
     }
-}
-impl Update for EPID {
-    fn update(&mut self, actual: f32, goal: f32) -> f32 {
+    pub fn update(&mut self, error: f32) -> f32 {
         match self.pid.prev_error_sign {
             None => {}
             Some(val) => {
-                if (goal - actual).is_sign_positive() != val {
+                if (error).is_sign_positive() != val {
                     self.output_mod *= 0.5
                 }
             }
         }
-        self.pid.update(actual, goal) * self.output_mod
+        self.pid.update(error) * self.output_mod
     }
 }
 
@@ -110,9 +102,7 @@ impl TBH {
             prev_sign: None,
         }
     }
-}
-impl Update for TBH {
-    fn update(&mut self, actual: f32, goal: f32) -> f32 {
+    pub fn update(&mut self, actual: f32, goal: f32) -> f32 {
         let error = goal - actual;
 
         if Some(error.is_sign_positive()) != self.prev_sign {

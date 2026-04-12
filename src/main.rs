@@ -5,13 +5,20 @@ use std::{
 
 use vexide::prelude::*;
 
-use crate::chassis::{
-    drivetrain::{self, Drivetrain},
-    odom,
+use crate::{
+    chassis::{
+        Chassis,
+        drivetrain::{self, Drivetrain},
+        odom,
+    },
+    controllers::PidTune,
+    manager::ManagerParams,
+    utils::wrap_180,
 };
 
 pub mod log;
 pub mod manager;
+pub mod utils;
 
 struct Robot {}
 
@@ -55,23 +62,31 @@ async fn main(peripherals: Peripherals) {
         Motor::new(peripherals.port_9, Gearset::Blue, Direction::Forward),
         Motor::new(peripherals.port_10, Gearset::Blue, Direction::Forward),
     ]));
-    let inertial_sensor = Arc::new(Mutex::new(InertialSensor::new(peripherals.port_20)));
-    let mut odom = odom::Odom::new(
+    let mut inertial_sensor = InertialSensor::new(peripherals.port_20);
+    let _ = inertial_sensor.calibrate().await;
+    let inertial_sensor = Arc::new(Mutex::new(inertial_sensor));
+    {}
+    let odom = Arc::new(Mutex::new(odom::Odom::new(
         vert_tracking.clone(),
         hori_tracking.clone(),
         inertial_sensor.clone(),
         0.0,
         0.0,
-    );
-    let drivetrain =
-        drivetrain::Drivetrain::new(leftside.clone(), rightside.clone(), 0.75 / 1.0, 3.25 / 2.0);
+    )));
+    let drivetrain = Arc::new(Mutex::new(Drivetrain::new(
+        leftside.clone(),
+        rightside.clone(),
+        0.75 / 1.0,
+        3.25 / 2.0,
+    )));
     //drivetrain.set_voltage(2.0, 2.0);
-    loop {
-        odom.calculate();
-        let val = odom.get_x_position();
-        println!("X_Pos is{}", val);
-        vexide::time::sleep(Duration::from_millis(10)).await;
-    }
+    let mut chassis = Chassis::new(odom.clone(), drivetrain.clone(), inertial_sensor.clone());
+    chassis.set_angular_tune(PidTune::new(0.2, 0.0, 0.0, 0.0));
+    chassis.set_angular_params(ManagerParams::new(0.5, 40, 1.0, 100, 4000));
+
+    //chassis.drive_for(10.0).await;
+    println!("Here");
+    chassis.turn_to(10.0).await;
 }
 
 #[cfg(test)]
