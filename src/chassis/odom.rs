@@ -52,9 +52,9 @@ impl Odom {
     }
     pub fn calculate_drivetrain_theta(&self) -> Angle {
         let right_delta =
-            self.drivetrain.lock().unwrap().get_right_inches() - self.previous_drivetrain_state.0;
+            self.drivetrain.lock().unwrap().get_right_inches() - self.previous_drivetrain_state.1;
         let left_delta =
-            self.drivetrain.lock().unwrap().get_left_inches() - self.previous_drivetrain_state.1;
+            self.drivetrain.lock().unwrap().get_left_inches() - self.previous_drivetrain_state.0;
         //Left is larger is 0, Right is larger is 1
         //let side = right_delta > left_delta;
         let delta_theta = if true {
