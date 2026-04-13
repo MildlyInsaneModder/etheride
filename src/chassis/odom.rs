@@ -29,12 +29,17 @@ impl Odom {
         drivetrain: Arc<Mutex<Drivetrain>>,
         vertical_offset: f32,
         horizontal_offset: f32,
+        drivetrain_state: (f32, f32),
     ) -> Self {
         Self {
-            imu: inertial_sensor.clone(),
-            vertical_tracking: vertical_tracking.clone(),
-            drivetrain: drivetrain.clone(),
-            horizontal_tracking: horizontal_tracking.clone(),
+            previous_drivetrain_state: (
+                drivetrain_state.0,
+                drivetrain_state.1,
+            ),
+            imu: inertial_sensor,
+            vertical_tracking,
+            drivetrain,
+            horizontal_tracking,
             vertical_offset,
             horizontal_offset,
             y_position: Arc::new(RwLock::new(0.0)),
@@ -42,10 +47,7 @@ impl Odom {
             previous_horizontal_input: 0.0,
             previous_vertical_input: 0.0,
             previous_theta: Angle::from_degrees(0.0),
-            previous_drivetrain_state: (
-                drivetrain.lock().unwrap().get_left_inches(),
-                drivetrain.lock().unwrap().get_right_inches(),
-            ),
+            
         }
     }
     pub fn calculate_drivetrain_theta(&self) -> Angle {
@@ -54,17 +56,18 @@ impl Odom {
         let left_delta =
             self.drivetrain.lock().unwrap().get_left_inches() - self.previous_drivetrain_state.1;
         //Left is larger is 0, Right is larger is 1
-        let side = right_delta > left_delta;
-        let delta_theta = if side {
+        //let side = right_delta > left_delta;
+        let delta_theta = if true {
             let longer = left_delta - right_delta;
             Angle::from_radians(
-                (-(longer / self.drivetrain.lock().unwrap().wheelbase.atan())).into(),
+                (-(longer / self.drivetrain.lock().unwrap().wheelbase).atan()).into(),
             )
         } else {
             let longer = right_delta - left_delta;
-            Angle::from_radians((longer / self.drivetrain.lock().unwrap().wheelbase.atan()).into())
+            Angle::from_radians((longer / self.drivetrain.lock().unwrap().wheelbase).atan().into())
         };
         self.previous_theta + delta_theta
+        
     }
     pub fn calculate(&mut self) {
         let theta = self
@@ -106,10 +109,8 @@ impl Odom {
         self.previous_horizontal_input = horizontal_input;
         self.previous_vertical_input = vertical_input;
         self.previous_theta = theta;
-        self.previous_drivetrain_state = (
-            self.drivetrain.lock().unwrap().get_left_inches(),
-            self.drivetrain.lock().unwrap().get_right_inches(),
-        );
+        self.previous_drivetrain_state.0 = self.drivetrain.lock().unwrap().get_left_inches();
+        self.previous_drivetrain_state.1 = self.drivetrain.lock().unwrap().get_right_inches();
     }
     pub fn get_y_position(&self) -> f32 {
         *self.y_position.read().unwrap()

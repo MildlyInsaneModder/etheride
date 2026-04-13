@@ -40,47 +40,60 @@ async fn main(peripherals: Peripherals) {
         peripherals.port_19,
         Direction::Forward,
     )));
+    println!("Hori Init");
     let vert_sensor = Arc::new(Mutex::new(RotationSensor::new(
         peripherals.port_6,
         Direction::Reverse,
     )));
+    println!("Vert Init");
     let hori_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
         hori_sensor,
         2.0,
     )));
+    println!("Hori Tracking Init");
     let vert_tracking = Arc::new(Mutex::new(chassis::tracking_wheel::TrackingWheel::new(
         vert_sensor,
         2.0,
     )));
+    println!("Vert Tracking Init");
     let leftside = Arc::new(Mutex::new([
         Motor::new(peripherals.port_1, Gearset::Blue, Direction::Reverse),
         Motor::new(peripherals.port_2, Gearset::Blue, Direction::Reverse),
         Motor::new(peripherals.port_3, Gearset::Blue, Direction::Reverse),
     ]));
+    println!("Leftside Init");
     let rightside = Arc::new(Mutex::new([
         Motor::new(peripherals.port_8, Gearset::Blue, Direction::Forward),
         Motor::new(peripherals.port_9, Gearset::Blue, Direction::Forward),
         Motor::new(peripherals.port_10, Gearset::Blue, Direction::Forward),
     ]));
+    println!("Rightside Init");
     let mut inertial_sensor = InertialSensor::new(peripherals.port_20);
     let _ = inertial_sensor.calibrate().await;
     let inertial_sensor = Arc::new(Mutex::new(inertial_sensor));
-
-    let drivetrain = Arc::new(Mutex::new(Drivetrain::new(
+        println!("Inertial Sensor Init");
+     let drivetrain = Arc::new(Mutex::new(Drivetrain::new(
         leftside.clone(),
         rightside.clone(),
         0.75 / 1.0,
         3.25 / 2.0,
         10.625,
     )));
+    println!("Drivetrain Init");
+    let drivetrain_state = {
+        let drivetrain = drivetrain.lock().unwrap();
+        (drivetrain.get_left_inches(), drivetrain.get_right_inches())
+    };
     let odom = Arc::new(Mutex::new(odom::Odom::new(
-        vert_tracking,
-        hori_tracking,
+        vert_tracking.clone(),
+        hori_tracking.clone(),
         inertial_sensor.clone(),
         drivetrain.clone(),
         0.0,
         0.0,
+        drivetrain_state,
     )));
+    println!("Odom Init");
     //drivetrain.set_voltage(2.0, 2.0);
     let mut chassis = Chassis::new(odom.clone(), drivetrain.clone(), inertial_sensor.clone());
     chassis.set_angular_tune(PidTune::new(0.2, 0.0, 0.0, 0.0));
@@ -91,7 +104,7 @@ async fn main(peripherals: Peripherals) {
     chassis.init();
     loop {
         println!("Heading is {}", chassis.get_theta_deg());
-        vexide::time::sleep(Duration::from_millis(10)).await;
+        vexide::time::sleep(Duration::from_millis(40)).await;
     }
 }
 
