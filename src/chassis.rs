@@ -2,8 +2,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use vexide::display::Font;
-use vexide::math::Point2;
 use vexide::prelude::InertialSensor;
 
 use crate::chassis::{drivetrain::Drivetrain, odom::Odom};
@@ -110,5 +108,37 @@ impl Chassis {
     }
     pub fn set_angular_params(&mut self, params: ManagerParams) {
         self.angular_params = params;
+    }
+    pub async fn init(&self) {
+        let odom = self.odom.clone();
+        vexide::task::spawn(async move {
+            loop {
+                odom.lock().unwrap().calculate();
+                vexide::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .detach();
+    }
+    pub fn get_y_position(&self) -> f32 {
+        *self.odom.lock().unwrap().y_position.read().unwrap()
+    }
+    pub fn get_x_position(&self) -> f32 {
+        *self.odom.lock().unwrap().x_position.read().unwrap()
+    }
+    pub fn get_theta_deg(&self) -> f32 {
+        self.imu
+            .lock()
+            .unwrap()
+            .heading()
+            .unwrap_or(self.odom.lock().unwrap().calculate_drivetrain_theta())
+            .as_degrees() as f32
+    }
+    pub fn get_theta_rad(&self) -> f32 {
+        self.imu
+            .lock()
+            .unwrap()
+            .heading()
+            .unwrap_or(self.odom.lock().unwrap().calculate_drivetrain_theta())
+            .as_radians() as f32
     }
 }

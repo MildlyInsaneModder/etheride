@@ -65,19 +65,21 @@ async fn main(peripherals: Peripherals) {
     let mut inertial_sensor = InertialSensor::new(peripherals.port_20);
     let _ = inertial_sensor.calibrate().await;
     let inertial_sensor = Arc::new(Mutex::new(inertial_sensor));
-    {}
-    let odom = Arc::new(Mutex::new(odom::Odom::new(
-        vert_tracking.clone(),
-        hori_tracking.clone(),
-        inertial_sensor.clone(),
-        0.0,
-        0.0,
-    )));
+
     let drivetrain = Arc::new(Mutex::new(Drivetrain::new(
         leftside.clone(),
         rightside.clone(),
         0.75 / 1.0,
         3.25 / 2.0,
+        10.625,
+    )));
+    let odom = Arc::new(Mutex::new(odom::Odom::new(
+        vert_tracking,
+        hori_tracking,
+        inertial_sensor.clone(),
+        drivetrain.clone(),
+        0.0,
+        0.0,
     )));
     //drivetrain.set_voltage(2.0, 2.0);
     let mut chassis = Chassis::new(odom.clone(), drivetrain.clone(), inertial_sensor.clone());
@@ -86,7 +88,11 @@ async fn main(peripherals: Peripherals) {
 
     //chassis.drive_for(10.0).await;
     println!("Here");
-    chassis.turn_to(10.0).await;
+    chassis.init();
+    loop {
+        println!("Heading is {}", chassis.get_theta_deg());
+        vexide::time::sleep(Duration::from_millis(10)).await;
+    }
 }
 
 #[cfg(test)]

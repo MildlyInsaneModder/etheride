@@ -2,32 +2,39 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use vexide::{math::Angle, prelude::InertialSensor};
 
-use crate::chassis::tracking_wheel::TrackingWheel;
+use crate::chassis::{
+    drivetrain::{self, Drivetrain},
+    tracking_wheel::TrackingWheel,
+};
 
 pub struct Odom {
-    inertial_sensor: Arc<Mutex<InertialSensor>>,
+    imu: Arc<Mutex<InertialSensor>>,
     vertical_tracking: Arc<Mutex<TrackingWheel>>,
     horizontal_tracking: Arc<Mutex<TrackingWheel>>,
+    drivetrain: Arc<Mutex<Drivetrain>>,
     vertical_offset: f32,
     horizontal_offset: f32,
-    y_position: Arc<RwLock<f32>>,
-    x_position: Arc<RwLock<f32>>,
+    pub y_position: Arc<RwLock<f32>>,
+    pub x_position: Arc<RwLock<f32>>,
     previous_horizontal_input: f32,
     previous_vertical_input: f32,
     previous_theta: Angle,
+    previous_drivetrain_state: (f32, f32),
 }
 impl Odom {
     pub fn new(
         vertical_tracking: Arc<Mutex<TrackingWheel>>,
         horizontal_tracking: Arc<Mutex<TrackingWheel>>,
         inertial_sensor: Arc<Mutex<InertialSensor>>,
+        drivetrain: Arc<Mutex<Drivetrain>>,
         vertical_offset: f32,
         horizontal_offset: f32,
     ) -> Self {
         Self {
-            inertial_sensor,
-            vertical_tracking,
-            horizontal_tracking,
+            imu: inertial_sensor.clone(),
+            vertical_tracking: vertical_tracking.clone(),
+            drivetrain: drivetrain.clone(),
+            horizontal_tracking: horizontal_tracking.clone(),
             vertical_offset,
             horizontal_offset,
             y_position: Arc::new(RwLock::new(0.0)),
@@ -35,15 +42,37 @@ impl Odom {
             previous_horizontal_input: 0.0,
             previous_vertical_input: 0.0,
             previous_theta: Angle::from_degrees(0.0),
+            previous_drivetrain_state: (
+                drivetrain.lock().unwrap().get_left_inches(),
+                drivetrain.lock().unwrap().get_right_inches(),
+            ),
         }
+    }
+    pub fn calculate_drivetrain_theta(&self) -> Angle {
+        let right_delta =
+            self.drivetrain.lock().unwrap().get_right_inches() - self.previous_drivetrain_state.0;
+        let left_delta =
+            self.drivetrain.lock().unwrap().get_left_inches() - self.previous_drivetrain_state.1;
+        //Left is larger is 0, Right is larger is 1
+        let side = right_delta > left_delta;
+        let delta_theta = if side {
+            let longer = left_delta - right_delta;
+            Angle::from_radians(
+                (-(longer / self.drivetrain.lock().unwrap().wheelbase.atan())).into(),
+            )
+        } else {
+            let longer = right_delta - left_delta;
+            Angle::from_radians((longer / self.drivetrain.lock().unwrap().wheelbase.atan()).into())
+        };
+        self.previous_theta + delta_theta
     }
     pub fn calculate(&mut self) {
         let theta = self
-            .inertial_sensor
+            .imu
             .lock()
             .unwrap()
             .heading()
-            .unwrap_or(self.previous_theta);
+            .unwrap_or(self.calculate_drivetrain_theta());
         let horizontal_input = self
             .horizontal_tracking
             .lock()
@@ -77,11 +106,31 @@ impl Odom {
         self.previous_horizontal_input = horizontal_input;
         self.previous_vertical_input = vertical_input;
         self.previous_theta = theta;
+        self.previous_drivetrain_state = (
+            self.drivetrain.lock().unwrap().get_left_inches(),
+            self.drivetrain.lock().unwrap().get_right_inches(),
+        );
     }
     pub fn get_y_position(&self) -> f32 {
         *self.y_position.read().unwrap()
     }
     pub fn get_x_position(&self) -> f32 {
         *self.x_position.read().unwrap()
+    }
+    pub fn get_theta_deg(&self) -> f32 {
+        self.imu
+            .lock()
+            .unwrap()
+            .heading()
+            .unwrap_or(self.calculate_drivetrain_theta())
+            .as_degrees() as f32
+    }
+    pub fn get_theta_rad(&self) -> f32 {
+        self.imu
+            .lock()
+            .unwrap()
+            .heading()
+            .unwrap_or(self.calculate_drivetrain_theta())
+            .as_radians() as f32
     }
 }

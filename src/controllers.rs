@@ -46,7 +46,12 @@ impl PID {
         }
         self.prev_millis = Some(millis);
         dt /= 1000.0;
-        let derivative = error - self.prev_error.unwrap_or(error);
+        let prev_error = self.prev_error.unwrap_or(error);
+        let derivative = if dt > 0.0 {
+            (error - prev_error) / dt
+        } else {
+            0.0
+        };
         if self.prev_error_sign != Some(error.is_sign_positive()) {
             self.summation = 0.0;
         }
